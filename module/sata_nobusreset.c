@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Mark the AMD FCH SATA controllers (1022:7901) as not bus-resettable.
+ * Mark the AMD FCH SATA controllers as not bus-resettable.
  *
  * On the AOOSTAR WTR Pro (Ryzen 7 5825U) both SATA functions sit alone behind
  * bridge 00:08.2. When both are passed through, QEMU/vfio prefers a secondary
@@ -12,17 +12,24 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 
-#define FCH_SATA_DEVICE_ID 0x7901
+/* AMD FCH SATA device IDs, add yours here (lspci -nn | grep -i sata) */
+static const unsigned short fch_sata_device_ids[] = {
+	0x7901,	/* WTR Pro 5825u */
+	0x7904,	/* WTR Pro 5825u user report */
+};
 
 static int __init sata_nobusreset_init(void)
 {
-	struct pci_dev *pdev = NULL;
-	int n = 0;
+	struct pci_dev *pdev;
+	int i, n = 0;
 
-	while ((pdev = pci_get_device(PCI_VENDOR_ID_AMD, FCH_SATA_DEVICE_ID, pdev))) {
-		pdev->dev_flags |= PCI_DEV_FLAGS_NO_BUS_RESET;
-		pci_info(pdev, "sata_nobusreset: bus reset disabled\n");
-		n++;
+	for (i = 0; i < ARRAY_SIZE(fch_sata_device_ids); i++) {
+		pdev = NULL;
+		while ((pdev = pci_get_device(PCI_VENDOR_ID_AMD, fch_sata_device_ids[i], pdev))) {
+			pdev->dev_flags |= PCI_DEV_FLAGS_NO_BUS_RESET;
+			pci_info(pdev, "sata_nobusreset: bus reset disabled\n");
+			n++;
+		}
 	}
 
 	return n ? 0 : -ENODEV;
@@ -30,11 +37,15 @@ static int __init sata_nobusreset_init(void)
 
 static void __exit sata_nobusreset_exit(void)
 {
-	struct pci_dev *pdev = NULL;
+	struct pci_dev *pdev;
+	int i;
 
-	while ((pdev = pci_get_device(PCI_VENDOR_ID_AMD, FCH_SATA_DEVICE_ID, pdev))) {
-		pdev->dev_flags &= ~PCI_DEV_FLAGS_NO_BUS_RESET;
-		pci_info(pdev, "sata_nobusreset: bus reset re-enabled\n");
+	for (i = 0; i < ARRAY_SIZE(fch_sata_device_ids); i++) {
+		pdev = NULL;
+		while ((pdev = pci_get_device(PCI_VENDOR_ID_AMD, fch_sata_device_ids[i], pdev))) {
+			pdev->dev_flags &= ~PCI_DEV_FLAGS_NO_BUS_RESET;
+			pci_info(pdev, "sata_nobusreset: bus reset re-enabled\n");
+		}
 	}
 }
 
